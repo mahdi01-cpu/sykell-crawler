@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -41,6 +42,7 @@ func (h *Handler) HandleListURLs(w http.ResponseWriter, r *http.Request) {
 	if status != "" {
 		st = domain.UrlStatus(status)
 		if !st.IsValid() {
+			log.Printf("invalid status: %s", status)
 			writeJSON(w, http.StatusBadRequest, apiError{Code: "bad_request", Message: "invalid status"})
 			return
 		}
@@ -58,6 +60,7 @@ func (h *Handler) HandleListURLs(w http.ResponseWriter, r *http.Request) {
 
 	items, err := h.urlSvc.ListURLs(r.Context(), filter, sort)
 	if err != nil {
+		log.Printf("error listing urls: %v", err)
 		writeError(w, err)
 		return
 	}

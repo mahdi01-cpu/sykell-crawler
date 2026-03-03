@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -17,6 +18,7 @@ type createUrlResponse struct {
 func (h *Handler) HandleCreateURLs(w http.ResponseWriter, r *http.Request) {
 	var req createURLsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("failed to decode request body: %v", err)
 		writeJSON(w, http.StatusBadRequest, apiError{Code: "bad_request", Message: "invalid json body"})
 		return
 	}
@@ -33,6 +35,7 @@ func (h *Handler) HandleCreateURLs(w http.ResponseWriter, r *http.Request) {
 	saved, err := h.urlSvc.AddURLs(r.Context(), urls)
 
 	if err != nil {
+		log.Printf("failed to add urls: %v", err)
 		writeError(w, err)
 		return
 	}

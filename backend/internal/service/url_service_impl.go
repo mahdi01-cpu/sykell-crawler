@@ -53,48 +53,56 @@ func (s *urlService) AddURLs(ctx context.Context, raws []string) ([]*domain.URL,
 	return result, nil
 }
 
-// StartURLs changes the status of the specified URLs to "running". It retrieves each URL by ID, updates its status,
+// StartURLs changes the status of the specified URLs to "queued". It retrieves each URL by ID, updates its status,
 // and saves the changes to the repository. If any URL is not found or if there is an error during the update, it returns an error.
-func (s *urlService) StartURLs(ctx context.Context, ids []domain.ID) error {
+func (s *urlService) StartURLs(ctx context.Context, ids []domain.ID) ([]*domain.URL, error) {
+	out := make([]*domain.URL, 0, len(ids))
 	for _, id := range ids {
+
+		// N + N queries, can be optimized by a batch get and batch update in the repository layer
 		u, err := s.repo.FindByID(ctx, id)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		if err := u.ChangeStatus(domain.UrlStatusRunning); err != nil {
-			return err
+		if err := u.ChangeStatus(domain.UrlStatusQueued); err != nil {
+			return nil, err
 		}
 
 		u, err = s.repo.Update(ctx, u)
 		if err != nil {
-			return err
+			return nil, err
 		}
+		out = append(out, u)
 	}
 
-	return nil
+	return out, nil
 }
 
 // StopURLs changes the status of the specified URLs to "stopped". It retrieves each URL by ID, updates its status,
 // and saves the changes to the repository. If any URL is not found or if there is an error during the update, it returns an error.
-func (s *urlService) StopURLs(ctx context.Context, ids []domain.ID) error {
+func (s *urlService) StopURLs(ctx context.Context, ids []domain.ID) ([]*domain.URL, error) {
+	out := make([]*domain.URL, 0, len(ids))
+
 	for _, id := range ids {
+		// N + N queries, can be optimized by a batch get and batch update in the repository layer
 		u, err := s.repo.FindByID(ctx, id)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		if err := u.ChangeStatus(domain.UrlStatusStopped); err != nil {
-			return err
+			return nil, err
 		}
 
 		u, err = s.repo.Update(ctx, u)
 		if err != nil {
-			return err
+			return nil, err
 		}
+		out = append(out, u)
 	}
 
-	return nil
+	return out, nil
 }
 
 // ListURLs retrieves a list of URLs from the repository based on the provided filter and sort criteria.

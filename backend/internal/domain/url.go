@@ -26,7 +26,7 @@ var statusTransitions = map[UrlStatus][]UrlStatus{
 	UrlStatusRunning: {UrlStatusDone, UrlStatusFailed, UrlStatusStopped},
 	UrlStatusDone:    {},
 	UrlStatusFailed:  {},
-	UrlStatusStopped: {},
+	UrlStatusStopped: {UrlStatusQueued},
 }
 
 type HeadingCount struct {

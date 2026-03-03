@@ -36,6 +36,8 @@ func New(addr string, deps Deps) *Server {
 	mux.HandleFunc("POST /urls", h.HandleCreateURLs)
 	mux.HandleFunc("GET /urls/{id}", h.HandleGetURL)
 	mux.HandleFunc("GET /urls", h.HandleListURLs)
+	mux.HandleFunc("POST /urls/start", h.HandleStartURLs)
+	mux.HandleFunc("POST /urls/stop", h.HandleStopURLs)
 
 	s := &http.Server{
 		Addr:              addr,
