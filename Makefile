@@ -1,4 +1,4 @@
-.PHONY: infra-up infra-down migrate tidy fmt run-backend install-frontend run-frontend
+.PHONY: infra-up infra-down migrate tidy fmt test run-backend install-frontend run-frontend
 
 infra-up:
 	docker-compose -f docker-compose-infra.yml up -d --wait
@@ -14,7 +14,10 @@ tidy:
 
 fmt:
 	cd backend && go fmt ./...
-	
+
+test:
+	cd backend && go test -v ./...
+
 run-backend:
 	cd backend && go run ./cmd/api
 

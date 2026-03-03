@@ -79,6 +79,18 @@ make run-frontend
 
 ------------------------------------------------------------------------
 
+## Tests
+
+### Backend tests
+
+From the repository root:
+
+```bash
+cd backend
+go test ./... -v
+
+------------------------------------------------------------------------
+
 ## Configuration
 
 ### Backend Environment Variables
