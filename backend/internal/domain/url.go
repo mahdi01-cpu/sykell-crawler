@@ -55,6 +55,10 @@ type URL struct {
 	UpdatedAt time.Time
 }
 
+func hashURL(raw string) Hash {
+	return sha256.Sum256([]byte(raw))
+}
+
 func New(raw string) (*URL, error) {
 	raw = strings.TrimSpace(raw)
 
@@ -63,16 +67,10 @@ func New(raw string) (*URL, error) {
 		return nil, ErrInvalidURL
 	}
 
-	sum := sha256.Sum256([]byte(raw))
-
-	now := time.Now().UTC()
-
 	return &URL{
-		Raw:       raw,
-		Hash:      sum,
-		Status:    UrlStatusQueued,
-		CreatedAt: now,
-		UpdatedAt: now,
+		Raw:    raw,
+		Hash:   hashURL(raw),
+		Status: UrlStatusQueued,
 	}, nil
 }
 
@@ -85,10 +83,31 @@ func (u *URL) ChangeStatus(newStatus UrlStatus) error {
 	for _, allowedStatus := range allowedStatuses {
 		if newStatus == allowedStatus {
 			u.Status = newStatus
-			u.UpdatedAt = time.Now().UTC()
 			return nil
 		}
 	}
 
 	return ErrInvalidTransition
+}
+
+func (u *URL) Validate() error {
+	if strings.TrimSpace(u.Raw) == "" {
+		return ErrInvalidURL
+	}
+	parsed, err := url.ParseRequestURI(u.Raw)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return ErrInvalidURL
+	}
+	if hashURL(u.Raw) != u.Hash {
+		return ErrInvalidURL
+	}
+
+	switch u.Status {
+	case UrlStatusQueued, UrlStatusRunning, UrlStatusDone, UrlStatusFailed, UrlStatusStopped:
+		// valid status
+	default:
+		return ErrInvalidURLStatus
+	}
+
+	return nil
 }

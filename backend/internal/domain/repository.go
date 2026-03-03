@@ -32,8 +32,8 @@ type URLSort struct {
 }
 
 type URLRepository interface {
-	Save(ctx context.Context, u *URL) error
-	Update(ctx context.Context, u *URL) error
+	Save(ctx context.Context, u *URL) (*URL, error)
+	Update(ctx context.Context, u *URL) (*URL, error)
 	FindByID(ctx context.Context, id ID) (*URL, error)
 	FindByHash(ctx context.Context, hash Hash) (*URL, error)
 	List(ctx context.Context, filter URLFilter, sort URLSort) ([]*URL, error)
