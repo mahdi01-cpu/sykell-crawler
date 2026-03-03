@@ -8,6 +8,7 @@ import (
 
 	"github.com/mahdi-01/sykell-crawler/internal/service"
 	"github.com/mahdi-01/sykell-crawler/internal/transport/httpserver/handlers"
+	"github.com/mahdi-01/sykell-crawler/internal/transport/middleware"
 )
 
 type Server struct {
@@ -15,7 +16,10 @@ type Server struct {
 }
 type Deps struct {
 	URLService service.URLService
+	APIToken   string
 }
+
+type Middleware func(http.Handler) http.Handler
 
 func New(addr string, deps Deps) *Server {
 	h := handlers.NewHandler(deps.URLService)
@@ -39,9 +43,17 @@ func New(addr string, deps Deps) *Server {
 	mux.HandleFunc("POST /urls/start", h.HandleStartURLs)
 	mux.HandleFunc("POST /urls/stop", h.HandleStopURLs)
 
+	excludedUrls := map[string]struct{}{
+		"/healthz": {},
+	}
+	middlewares := []Middleware{
+		middleware.AuthBearer(deps.APIToken, excludedUrls),
+	}
+	chainMux := chain(mux, middlewares...)
+
 	s := &http.Server{
 		Addr:              addr,
-		Handler:           mux,
+		Handler:           chainMux,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
@@ -54,4 +66,12 @@ func (s *Server) ListenAndServe() error {
 
 func (s *Server) Shutdown(ctx context.Context) error {
 	return s.httpServer.Shutdown(ctx)
+}
+
+func chain(h http.Handler, mws ...Middleware) http.Handler {
+	// Apply in reverse so: chain(h, a, b, c) => a(b(c(h)))
+	for i := len(mws) - 1; i >= 0; i-- {
+		h = mws[i](h)
+	}
+	return h
 }

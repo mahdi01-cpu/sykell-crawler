@@ -18,6 +18,7 @@ type Config struct {
 	HTTPAddr string
 	DBDSN    string
 	Crawler  *CrawlerConfig
+	APIToken string
 }
 
 func NewConfig() *Config {
@@ -25,6 +26,7 @@ func NewConfig() *Config {
 		HTTPAddr: getEnv("HTTP_ADDR", "0.0.0.0:8080"),
 		DBDSN:    buildDBDSN(),
 		Crawler:  getCrawlerConfig(),
+		APIToken: getEnv("API_TOKEN", "dev-token"),
 	}
 }
 

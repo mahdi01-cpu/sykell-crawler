@@ -29,7 +29,7 @@ func main() {
 
 	urlRepo := repo.NewURLRepo(sqlDB)
 	urlService := service.NewURLService(urlRepo)
-	srv := httpserver.New(cfg.HTTPAddr, httpserver.Deps{URLService: urlService})
+	srv := httpserver.New(cfg.HTTPAddr, httpserver.Deps{URLService: urlService, APIToken: cfg.APIToken})
 
 	// root ctx for app lifecycle
 	appCtx, cancelApp := context.WithCancel(context.Background())
