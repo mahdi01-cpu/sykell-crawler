@@ -47,6 +47,7 @@ func New(addr string, deps Deps) *Server {
 		"/healthz": {},
 	}
 	middlewares := []Middleware{
+		middleware.CORS(""),
 		middleware.AuthBearer(deps.APIToken, excludedUrls),
 	}
 	chainMux := chain(mux, middlewares...)

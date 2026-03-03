@@ -8,7 +8,7 @@ import (
 )
 
 func (c *Crawler) runUrlExpirationChecker(ctx context.Context) {
-	log.Println("url checker: checking for expired urls...")
+	//log.Println("url checker: checking for expired urls...")
 	urls, err := c.UrlRepo.GetExpiredUrls(ctx, 100)
 	if err != nil {
 		log.Printf("get expired urls: %v", err)

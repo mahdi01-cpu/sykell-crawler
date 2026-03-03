@@ -44,7 +44,7 @@ func (c *Crawler) tick(ctx context.Context) {
 		return
 	}
 	if len(urls) == 0 {
-		log.Println("scheduler: no queued urls")
+		//log.Println("scheduler: no queued urls")
 		return
 	}
 
