@@ -25,7 +25,7 @@ var statusTransitions = map[UrlStatus][]UrlStatus{
 	UrlStatusQueued:  {UrlStatusRunning, UrlStatusStopped, UrlStatusQueued},
 	UrlStatusRunning: {UrlStatusDone, UrlStatusFailed, UrlStatusStopped},
 	UrlStatusDone:    {},
-	UrlStatusFailed:  {},
+	UrlStatusFailed:  {UrlStatusStopped, UrlStatusQueued},
 	UrlStatusStopped: {UrlStatusQueued, UrlStatusStopped},
 }
 
