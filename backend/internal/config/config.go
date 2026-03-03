@@ -5,12 +5,14 @@ import (
 )
 
 type Config struct {
-	DBDSN string
+	HTTPAddr string
+	DBDSN    string
 }
 
 func NewConfig() *Config {
 	return &Config{
-		DBDSN: buildDBDSN(),
+		HTTPAddr: getEnv("HTTP_ADDR", "0.0.0.0:8080"),
+		DBDSN:    buildDBDSN(),
 	}
 }
 
