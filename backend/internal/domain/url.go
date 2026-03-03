@@ -22,11 +22,11 @@ const (
 
 var statusTransitions = map[UrlStatus][]UrlStatus{
 	UrlStatusCreated: {UrlStatusQueued, UrlStatusStopped},
-	UrlStatusQueued:  {UrlStatusRunning, UrlStatusStopped},
+	UrlStatusQueued:  {UrlStatusRunning, UrlStatusStopped, UrlStatusQueued},
 	UrlStatusRunning: {UrlStatusDone, UrlStatusFailed, UrlStatusStopped},
 	UrlStatusDone:    {},
 	UrlStatusFailed:  {},
-	UrlStatusStopped: {UrlStatusQueued},
+	UrlStatusStopped: {UrlStatusQueued, UrlStatusStopped},
 }
 
 type HeadingCount struct {

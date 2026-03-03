@@ -26,14 +26,15 @@ func (h *Handler) HandleStartURLs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ids := make([]domain.ID, 0, len(req.IDs))
-	for _, id := range req.IDs {
-		if id == 0 {
-			log.Printf("invalid id: %d", id)
+	ids := make([]*domain.ID, 0, len(req.IDs))
+	for _, rawId := range req.IDs {
+		if rawId == 0 {
+			log.Printf("invalid id: %d", rawId)
 			writeJSON(w, http.StatusBadRequest, apiError{Code: "bad_request", Message: "invalid id"})
 			return
 		}
-		ids = append(ids, domain.ID(id))
+		id := domain.ID(rawId)
+		ids = append(ids, &id)
 	}
 
 	urls, err := h.urlSvc.StartURLs(r.Context(), ids)
@@ -43,7 +44,7 @@ func (h *Handler) HandleStartURLs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out := make([]urlCompact, len(urls))
+	out := make([]urlCompact, 0, len(urls))
 	for _, url := range urls {
 		out = append(out, *domainURLToUrlCompact(url))
 	}
@@ -65,14 +66,16 @@ func (h *Handler) HandleStopURLs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ids := make([]domain.ID, 0, len(req.IDs))
-	for _, id := range req.IDs {
-		if id == 0 {
-			log.Printf("invalid id: %d", id)
+	ids := make([]*domain.ID, 0, len(req.IDs))
+
+	for _, rawId := range req.IDs {
+		if rawId == 0 {
+			log.Printf("invalid id: %d", rawId)
 			writeJSON(w, http.StatusBadRequest, apiError{Code: "bad_request", Message: "invalid id"})
 			return
 		}
-		ids = append(ids, domain.ID(id))
+		id := domain.ID(rawId)
+		ids = append(ids, &id)
 	}
 
 	urls, err := h.urlSvc.StopURLs(r.Context(), ids)
@@ -82,7 +85,7 @@ func (h *Handler) HandleStopURLs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out := make([]urlCompact, len(urls))
+	out := make([]urlCompact, 0, len(urls))
 	for _, url := range urls {
 		out = append(out, *domainURLToUrlCompact(url))
 	}

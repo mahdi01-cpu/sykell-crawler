@@ -32,117 +32,186 @@ var sortColumns = map[domain.URLSortField]string{
 	domain.SortByStatus:        "status",
 }
 
-func (r *URLRepo) Save(ctx context.Context, u *domain.URL) (*domain.URL, error) {
-	if err := u.Validate(); err != nil {
-		return nil, fmt.Errorf("validate url: %w", err)
+// BatchSave inserts multiple URLs in a single transaction. It assigns generated IDs back to the input URLs.
+func (r *URLRepo) BatchSave(ctx context.Context, urls []*domain.URL) ([]*domain.URL, error) {
+	if len(urls) == 0 {
+		return nil, nil
 	}
 
-	// TODO: On duplicate key, update or ignore? For now, we return an error and let the caller decide.
+	hashes := make([]*domain.Hash, 0, len(urls))
+	for _, u := range urls {
+		hashes = append(hashes, &u.Hash)
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
 	q := r.sb.Insert("urls").
-		Columns(
-			"url", "url_hash", "status",
-			"html_version", "page_title",
-			"links_count", "internal_links_count", "external_links_count", "inaccessible_links_count",
-			"has_login_form",
-			"h1_count", "h2_count", "h3_count", "h4_count", "h5_count", "h6_count",
-		).
-		Values(
-			u.Raw, u.Hash[:], u.Status,
-			u.HTMLVersion, u.PageTitle,
-			u.LinksCount, u.InternalLinksCount, u.ExternalLinksCount, u.InaccessibleLinksCount,
-			u.HasLoginForm,
-			u.H1Count, u.H2Count, u.H3Count, u.H4Count, u.H5Count, u.H6Count,
-		)
+		Columns("url", "url_hash", "status")
+
+	for _, u := range urls {
+		q = q.Values(u.Raw, u.Hash[:], u.Status)
+	}
 
 	sqlStr, args, err := q.ToSql()
 	if err != nil {
 		return nil, fmt.Errorf("build insert: %w", err)
 	}
 
-	res, err := r.db.ExecContext(ctx, sqlStr, args...)
-	if err != nil {
-		if isDuplicateKey(err) {
-			return nil, domain.ErrAlreadyExists
-		}
-		return nil, fmt.Errorf("insert url: %w", err)
+	if _, err := tx.ExecContext(ctx, sqlStr, args...); err != nil {
+		return nil, fmt.Errorf("execute insert: %w", err)
 	}
 
-	id, err := res.LastInsertId()
-	if err != nil {
-		return nil, fmt.Errorf("last insert id: %w", err)
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit transaction: %w", err)
 	}
 
-	saved, err := r.FindByID(ctx, domain.ID(id))
+	urls, err = r.FindByHashes(ctx, hashes)
 	if err != nil {
-		return nil, fmt.Errorf("insert url succeeded (id=%d) but fetch failed: %w", id, err)
+		return nil, fmt.Errorf("fetch inserted urls: %w", err)
 	}
-	return saved, nil
+
+	return urls, nil
 }
 
-func (r *URLRepo) Update(ctx context.Context, u *domain.URL) (*domain.URL, error) {
-	if err := u.Validate(); err != nil {
-		return nil, fmt.Errorf("validate url: %w", err)
-	}
-	if u.ID == 0 {
-		// Fail fast if ID is not set
-		return nil, domain.ErrNotFound
+func (r *URLRepo) BatchUpdate(ctx context.Context, urls []*domain.URL) ([]*domain.URL, error) {
+	if len(urls) == 0 {
+		return nil, nil
 	}
 
-	q := r.sb.Update("urls").
-		Set("status", u.Status).
-		Set("html_version", u.HTMLVersion).
-		Set("page_title", u.PageTitle).
-		Set("links_count", u.LinksCount).
-		Set("internal_links_count", u.InternalLinksCount).
-		Set("external_links_count", u.ExternalLinksCount).
-		Set("inaccessible_links_count", u.InaccessibleLinksCount).
-		Set("has_login_form", u.HasLoginForm).
-		Set("h1_count", u.H1Count).
-		Set("h2_count", u.H2Count).
-		Set("h3_count", u.H3Count).
-		Set("h4_count", u.H4Count).
-		Set("h5_count", u.H5Count).
-		Set("h6_count", u.H6Count).
-		Where(sq.Eq{"id": uint64(u.ID)})
+	hashes := make([]*domain.Hash, 0, len(urls))
+	for _, u := range urls {
+		hashes = append(hashes, &u.Hash)
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	for _, u := range urls {
+		q := r.sb.Update("urls").
+			Set("url", u.Raw).
+			Set("url_hash", u.Hash[:]).
+			Set("status", u.Status).
+			Set("html_version", u.HTMLVersion).
+			Set("page_title", u.PageTitle).
+			Set("links_count", u.LinksCount).
+			Set("internal_links_count", u.InternalLinksCount).
+			Set("external_links_count", u.ExternalLinksCount).
+			Set("inaccessible_links_count", u.InaccessibleLinksCount).
+			Set("has_login_form", u.HasLoginForm).
+			Set("h1_count", u.H1Count).
+			Set("h2_count", u.H2Count).
+			Set("h3_count", u.H3Count).
+			Set("h4_count", u.H4Count).
+			Set("h5_count", u.H5Count).
+			Set("h6_count", u.H6Count).
+			Where(sq.Eq{"id": uint64(u.ID)})
+
+		sqlStr, args, err := q.ToSql()
+		if err != nil {
+			return nil, fmt.Errorf("build update: %w", err)
+		}
+
+		_, err = tx.ExecContext(ctx, sqlStr, args...)
+		if err != nil {
+			return nil, fmt.Errorf("update url id %d: %w", u.ID, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit transaction: %w", err)
+	}
+
+	urls, err = r.FindByHashes(ctx, hashes)
+	if err != nil {
+		return nil, fmt.Errorf("fetch updated urls: %w", err)
+	}
+
+	return urls, nil
+}
+
+func (r *URLRepo) FindByIDs(ctx context.Context, ids []*domain.ID) ([]*domain.URL, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	idInts := make([]uint64, len(ids))
+	for i, id := range ids {
+		idInts[i] = uint64(*id)
+	}
+
+	q := r.sb.Select(urlColumns()...).
+		From("urls").
+		Where(sq.Eq{"id": idInts})
 
 	sqlStr, args, err := q.ToSql()
 	if err != nil {
-		return nil, fmt.Errorf("build update: %w", err)
+		return nil, fmt.Errorf("build select: %w", err)
 	}
 
-	res, err := r.db.ExecContext(ctx, sqlStr, args...)
+	rows, err := r.db.QueryContext(ctx, sqlStr, args...)
 	if err != nil {
-		return nil, fmt.Errorf("update url: %w", err)
+		return nil, fmt.Errorf("query urls by ids: %w", err)
 	}
+	defer rows.Close()
 
-	affected, _ := res.RowsAffected()
-	if affected == 0 {
-		return nil, domain.ErrNotFound
+	var out []*domain.URL
+	for rows.Next() {
+		u, err := scanURL(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, u)
 	}
-
-	updated, err := r.FindByID(ctx, u.ID)
-	if err != nil {
-		return nil, fmt.Errorf("update url succeeded (id=%d) but fetch failed: %w", u.ID, err)
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("query urls by ids rows: %w", err)
 	}
-	return updated, nil
+	return out, nil
 }
 
-func (r *URLRepo) FindByID(ctx context.Context, id domain.ID) (*domain.URL, error) {
+func (r *URLRepo) FindByHashes(ctx context.Context, hashes []*domain.Hash) ([]*domain.URL, error) {
+	if len(hashes) == 0 {
+		return nil, nil
+	}
+
+	hashBytes := make([][]byte, len(hashes))
+	for i, h := range hashes {
+		hashBytes[i] = h[:]
+	}
+
 	q := r.sb.Select(urlColumns()...).
 		From("urls").
-		Where(sq.Eq{"id": uint64(id)}).
-		Limit(1)
+		Where(sq.Eq{"url_hash": hashBytes})
 
-	return r.getOne(ctx, q)
-}
+	sqlStr, args, err := q.ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build select: %w", err)
+	}
 
-func (r *URLRepo) FindByHash(ctx context.Context, hash domain.Hash) (*domain.URL, error) {
-	q := r.sb.Select(urlColumns()...).
-		From("urls").
-		Where(sq.Eq{"url_hash": hash[:]}).
-		Limit(1)
+	rows, err := r.db.QueryContext(ctx, sqlStr, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query urls by hashes: %w", err)
+	}
+	defer rows.Close()
 
-	return r.getOne(ctx, q)
+	var out []*domain.URL
+	for rows.Next() {
+		u, err := scanURL(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, u)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("query urls by hashes rows: %w", err)
+	}
+	return out, nil
 }
 
 func (r *URLRepo) List(ctx context.Context, filter domain.URLFilter, sort domain.URLSort) ([]*domain.URL, error) {

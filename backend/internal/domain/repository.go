@@ -32,9 +32,9 @@ type URLSort struct {
 }
 
 type URLRepository interface {
-	Save(ctx context.Context, u *URL) (*URL, error)
-	Update(ctx context.Context, u *URL) (*URL, error)
-	FindByID(ctx context.Context, id ID) (*URL, error)
-	FindByHash(ctx context.Context, hash Hash) (*URL, error)
+	BatchSave(ctx context.Context, urls []*URL) ([]*URL, error)
+	BatchUpdate(ctx context.Context, urls []*URL) ([]*URL, error)
+	FindByIDs(ctx context.Context, ids []*ID) ([]*URL, error)
+	FindByHashes(ctx context.Context, hashes []*Hash) ([]*URL, error)
 	List(ctx context.Context, filter URLFilter, sort URLSort) ([]*URL, error)
 }

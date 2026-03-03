@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/mahdi-01/sykell-crawler/internal/domain"
 )
@@ -15,98 +16,144 @@ func NewURLService(repo domain.URLRepository) URLService {
 	return &urlService{repo: repo}
 }
 
-// AddURLs adds new URLs to the system. It validates each URL, checks for duplicates by hash, and saves valid URLs to the repository.
-// If a URL is invalid, it returns an error. If a URL already exists (based on hash), it ignores it and continues with the next one.
-// Returns a slice of successfully added URLs or an error if any URL is invalid or if there is a repository error.
 func (s *urlService) AddURLs(ctx context.Context, raws []string) ([]*domain.URL, error) {
 	if len(raws) == 0 {
 		return nil, nil
 	}
 
-	var result []*domain.URL
+	result := make([]*domain.URL, 0, len(raws))  // result to return, existing + new (without duplicates)
+	allUrls := make([]*domain.URL, 0, len(raws)) // raws -> domain.URL, including duplicates
+	hashes := make([]*domain.Hash, 0, len(raws)) // hashes for all raws, including duplicates
 
 	for _, raw := range raws {
 		u, err := domain.New(raw)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("invalid url '%s': %w", raw, err)
 		}
 
-		// Check if URL already exists by hash
-		existing, err := s.repo.FindByHash(ctx, u.Hash)
-		if err == nil && existing != nil {
-			// URL already exists, skip it
-			continue
-		}
-		if err != nil && !errors.Is(err, domain.ErrNotFound) {
-			// If error is not "not found", return it
-			return nil, err
-		}
+		hashes = append(hashes, &u.Hash)
+		allUrls = append(allUrls, u)
+	}
 
-		u, err = s.repo.Save(ctx, u)
-		if err != nil {
-			return nil, err
-		}
+	existing, err := s.repo.FindByHashes(ctx, hashes)
+	if err != nil {
+		return nil, fmt.Errorf("checking existing urls: %w", err)
+	}
 
+	existingMap := make(map[domain.Hash]struct{}, len(existing))
+	for _, u := range existing {
+		if _, exists := existingMap[u.Hash]; exists {
+			continue // duplicate in existing, should not happen if repo is consistent, but we can just skip it
+		}
+		existingMap[u.Hash] = struct{}{}
 		result = append(result, u)
 	}
+
+	toSaveHashes := make(map[domain.Hash]struct{}, len(existingMap))
+	toSave := make([]*domain.URL, 0, len(allUrls)-len(existingMap))
+	for _, u := range allUrls {
+		if _, exists := existingMap[u.Hash]; exists {
+			continue // already in DB
+		}
+		if _, exists := toSaveHashes[u.Hash]; exists {
+			continue // duplicate in toSave, can happen if raws has duplicates, we skip it
+		}
+		toSaveHashes[u.Hash] = struct{}{}
+		toSave = append(toSave, u)
+	}
+
+	if len(toSave) == 0 {
+		return result, nil
+	}
+
+	saved, err := s.repo.BatchSave(ctx, toSave)
+	if err != nil {
+		return nil, fmt.Errorf("saving urls: %w", err)
+	}
+
+	result = append(result, saved...) // combine existing + new saved urls
 
 	return result, nil
 }
 
-// StartURLs changes the status of the specified URLs to "queued". It retrieves each URL by ID, updates its status,
-// and saves the changes to the repository. If any URL is not found or if there is an error during the update, it returns an error.
-func (s *urlService) StartURLs(ctx context.Context, ids []domain.ID) ([]*domain.URL, error) {
-	out := make([]*domain.URL, 0, len(ids))
-	for _, id := range ids {
+func (s *urlService) StartURLs(ctx context.Context, ids []*domain.ID) ([]*domain.URL, error) {
+	allUrls, err := s.repo.FindByIDs(ctx, ids)
 
-		// N + N queries, can be optimized by a batch get and batch update in the repository layer
-		u, err := s.repo.FindByID(ctx, id)
-		if err != nil {
-			return nil, err
-		}
+	if err != nil {
+		return nil, err
+	}
+	if len(allUrls) == 0 {
+		return nil, errors.New("url not found")
+	}
 
+	out := make([]*domain.URL, 0, len(allUrls))
+	toUpdate := make([]*domain.URL, 0, len(allUrls))
+
+	for _, u := range allUrls {
+		ucp := *u
 		if err := u.ChangeStatus(domain.UrlStatusQueued); err != nil {
 			return nil, err
 		}
-
-		u, err = s.repo.Update(ctx, u)
-		if err != nil {
-			return nil, err
+		if ucp.Status != u.Status {
+			toUpdate = append(toUpdate, u)
+			continue
 		}
 		out = append(out, u)
 	}
 
+	if len(toUpdate) == 0 {
+		return out, nil
+	}
+
+	updated, err := s.repo.BatchUpdate(ctx, toUpdate)
+	if err != nil {
+		return nil, err
+	}
+	for _, u := range updated {
+		out = append(out, u)
+	}
 	return out, nil
 }
 
-// StopURLs changes the status of the specified URLs to "stopped". It retrieves each URL by ID, updates its status,
-// and saves the changes to the repository. If any URL is not found or if there is an error during the update, it returns an error.
-func (s *urlService) StopURLs(ctx context.Context, ids []domain.ID) ([]*domain.URL, error) {
-	out := make([]*domain.URL, 0, len(ids))
+func (s *urlService) StopURLs(ctx context.Context, ids []*domain.ID) ([]*domain.URL, error) {
+	allUrls, err := s.repo.FindByIDs(ctx, ids)
 
-	for _, id := range ids {
-		// N + N queries, can be optimized by a batch get and batch update in the repository layer
-		u, err := s.repo.FindByID(ctx, id)
-		if err != nil {
-			return nil, err
-		}
+	if err != nil {
+		return nil, err
+	}
+	if len(allUrls) == 0 {
+		return nil, errors.New("url not found")
+	}
 
+	out := make([]*domain.URL, 0, len(allUrls))
+	toUpdate := make([]*domain.URL, 0, len(allUrls))
+
+	for _, u := range allUrls {
+		ucp := *u
 		if err := u.ChangeStatus(domain.UrlStatusStopped); err != nil {
 			return nil, err
 		}
-
-		u, err = s.repo.Update(ctx, u)
-		if err != nil {
-			return nil, err
+		if ucp.Status != u.Status {
+			toUpdate = append(toUpdate, u)
+			continue
 		}
 		out = append(out, u)
 	}
 
+	if len(toUpdate) == 0 {
+		return out, nil
+	}
+
+	updated, err := s.repo.BatchUpdate(ctx, toUpdate)
+	if err != nil {
+		return nil, err
+	}
+	for _, u := range updated {
+		out = append(out, u)
+	}
 	return out, nil
 }
 
-// ListURLs retrieves a list of URLs from the repository based on the provided filter and sort criteria.
-// It returns a slice of URLs or an error if there is an issue with the repository query.
 func (s *urlService) ListURLs(
 	ctx context.Context,
 	filter *domain.URLFilter,
@@ -146,5 +193,12 @@ func (s *urlService) ListURLs(
 }
 
 func (s *urlService) GetURL(ctx context.Context, id domain.ID) (*domain.URL, error) {
-	return s.repo.FindByID(ctx, id)
+	urls, err := s.repo.FindByIDs(ctx, []*domain.ID{&id})
+	if err != nil {
+		return nil, err
+	}
+	if len(urls) == 0 {
+		return nil, errors.New("url not found")
+	}
+	return urls[0], nil
 }

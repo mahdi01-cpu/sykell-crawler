@@ -40,11 +40,10 @@ func (h *Handler) HandleCreateURLs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := &createUrlResponse{
-		Urls: make([]*urlCompact, len(saved)),
+	resp := &createUrlResponse{Urls: make([]*urlCompact, 0, len(saved))}
+	for _, d := range saved {
+		resp.Urls = append(resp.Urls, domainURLToUrlCompact(d))
 	}
-	for i, d := range saved {
-		resp.Urls[i] = domainURLToUrlCompact(d)
-	}
+	
 	writeJSON(w, http.StatusCreated, resp)
 }
