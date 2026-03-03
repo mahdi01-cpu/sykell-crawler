@@ -25,6 +25,7 @@ func scanURL(s rowScanner) (*domain.URL, error) {
 		hasLoginForm           bool
 		h1, h2, h3, h4, h5, h6 uint32
 		createdAt, updatedAt   time.Time
+		expiersAt              *time.Time
 	)
 
 	if err := s.Scan(
@@ -33,7 +34,7 @@ func scanURL(s rowScanner) (*domain.URL, error) {
 		&linksCount, &internalLinksCount, &externalLinksCount, &inaccessibleLinksCount,
 		&hasLoginForm,
 		&h1, &h2, &h3, &h4, &h5, &h6,
-		&createdAt, &updatedAt,
+		&createdAt, &updatedAt, &expiersAt,
 	); err != nil {
 		return nil, err
 	}
@@ -68,6 +69,13 @@ func scanURL(s rowScanner) (*domain.URL, error) {
 		},
 		CreatedAt: createdAt.UTC(),
 		UpdatedAt: updatedAt.UTC(),
+		ExpiresAt: func(t *time.Time) *time.Time {
+			if expiersAt != nil {
+				t := expiersAt.UTC()
+				return &t
+			}
+			return nil
+		}(expiersAt),
 	}
 	if err := u.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid row data: %w", err)

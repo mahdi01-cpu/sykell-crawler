@@ -47,7 +47,7 @@ func main() {
 		cfg.Crawler.ScheduleInterval,
 		cfg.Crawler.ScheduleBatchSize,
 		cfg.Crawler.WorkerNum,
-		cfg.Crawler.ExpirationTimeout,
+		cfg.Crawler.CrawlExpirationDelta,
 		cfg.Crawler.CrawlTimeout,
 	)
 	c.Start(appCtx)

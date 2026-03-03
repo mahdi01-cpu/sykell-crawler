@@ -37,4 +37,5 @@ type URLRepository interface {
 	FindByIDs(ctx context.Context, ids []*ID) ([]*URL, error)
 	FindByHashes(ctx context.Context, hashes []*Hash) ([]*URL, error)
 	List(ctx context.Context, filter URLFilter, sort URLSort) ([]*URL, error)
+	GetExpiredUrls(ctx context.Context, limit int) ([]*URL, error)
 }

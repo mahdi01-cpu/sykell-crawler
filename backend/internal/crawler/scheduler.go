@@ -24,6 +24,9 @@ func (c *Crawler) runScheduler(ctx context.Context) {
 }
 
 func (c *Crawler) tick(ctx context.Context) {
+	// 0) check expired urls
+	c.runUrlExpirationChecker(ctx)
+
 	// 1) find queued urls
 	filter := domain.URLFilter{
 		Status: domain.UrlStatusQueued,
@@ -46,18 +49,26 @@ func (c *Crawler) tick(ctx context.Context) {
 	}
 
 	// 2) update to running
+	toUpdate := make([]*domain.URL, 0, len(urls))
 	for _, u := range urls {
-		u.Status = domain.UrlStatusRunning
+		if err := u.ChangeStatus(domain.UrlStatusRunning); err != nil {
+			log.Printf("scheduler: change url status to running: %v", err)
+			continue
+		}
+		expireTime := time.Now().Add(c.CrawlExpirationDelta)
+		u.ExpiresAt = &expireTime
+		toUpdate = append(toUpdate, u)
+
 	}
 
-	urls, err = c.UrlRepo.BatchUpdate(ctx, urls)
+	toUpdate, err = c.UrlRepo.BatchUpdate(ctx, toUpdate)
 	if err != nil {
 		log.Printf("scheduler: batch update to running failed: %v", err)
 		return
 	}
 
 	// 3) push jobs
-	for _, u := range urls {
+	for _, u := range toUpdate {
 		select {
 		case <-ctx.Done():
 			return

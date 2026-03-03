@@ -111,6 +111,7 @@ func (r *URLRepo) BatchUpdate(ctx context.Context, urls []*domain.URL) ([]*domai
 			Set("h4_count", u.H4Count).
 			Set("h5_count", u.H5Count).
 			Set("h6_count", u.H6Count).
+			Set("expires_at", u.ExpiresAt).
 			Where(sq.Eq{"id": uint64(u.ID)})
 
 		sqlStr, args, err := q.ToSql()
@@ -270,6 +271,44 @@ func (r *URLRepo) List(ctx context.Context, filter domain.URLFilter, sort domain
 	return out, nil
 }
 
+func (r *URLRepo) GetExpiredUrls(ctx context.Context, limit int) ([]*domain.URL, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+
+	q := r.sb.Select(urlColumns()...).
+		From("urls").
+		Where(sq.Eq{"status": string(domain.UrlStatusRunning)}).
+		Where("expires_at IS NOT NULL").
+		Where("expires_at <= NOW()").
+		OrderBy("expires_at ASC").
+		Limit(uint64(limit))
+
+	sqlStr, args, err := q.ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build expired urls query: %w", err)
+	}
+
+	rows, err := r.db.QueryContext(ctx, sqlStr, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query expired urls: %w", err)
+	}
+	defer rows.Close()
+
+	var out []*domain.URL
+	for rows.Next() {
+		u, err := scanURL(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, u)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("expired urls rows: %w", err)
+	}
+	return out, nil
+}
+
 // ---------- helpers
 
 func urlColumns() []string {
@@ -279,7 +318,7 @@ func urlColumns() []string {
 		"links_count", "internal_links_count", "external_links_count", "inaccessible_links_count",
 		"has_login_form",
 		"h1_count", "h2_count", "h3_count", "h4_count", "h5_count", "h6_count",
-		"created_at", "updated_at",
+		"created_at", "updated_at", "expires_at",
 	}
 }
 

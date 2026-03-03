@@ -26,26 +26,26 @@ type Result struct {
 }
 
 type Crawler struct {
-	UrlRepo           domain.URLRepository
-	ScheduleInterval  time.Duration
-	ScheduleBatchSize int
-	WorkerNum         int
-	ExpirationTimeout time.Duration
-	CrawlTimeout      time.Duration
-	jobsChan          chan *domain.URL
-	crawler           *httpCrawler
+	UrlRepo              domain.URLRepository
+	ScheduleInterval     time.Duration
+	ScheduleBatchSize    int
+	WorkerNum            int
+	CrawlExpirationDelta time.Duration
+	CrawlTimeout         time.Duration
+	jobsChan             chan *domain.URL
+	crawler              *httpCrawler
 }
 
-func NewCrawler(urlRepo domain.URLRepository, scheduleInterval time.Duration, scheduleBatchSize int, workerNum int, expirationTimeout time.Duration, crawlTimeout time.Duration) *Crawler {
+func NewCrawler(urlRepo domain.URLRepository, scheduleInterval time.Duration, scheduleBatchSize int, workerNum int, crawlExpirationDelta time.Duration, crawlTimeout time.Duration) *Crawler {
 	return &Crawler{
-		UrlRepo:           urlRepo,
-		ScheduleInterval:  scheduleInterval,
-		ScheduleBatchSize: scheduleBatchSize,
-		WorkerNum:         workerNum,
-		ExpirationTimeout: expirationTimeout,
-		CrawlTimeout:      crawlTimeout,
-		jobsChan:          make(chan *domain.URL, workerNum*2), // buffer size can be tuned
-		crawler:           newHTTPCrawler(),
+		UrlRepo:              urlRepo,
+		ScheduleInterval:     scheduleInterval,
+		ScheduleBatchSize:    scheduleBatchSize,
+		WorkerNum:            workerNum,
+		CrawlExpirationDelta: crawlExpirationDelta,
+		CrawlTimeout:         crawlTimeout,
+		jobsChan:             make(chan *domain.URL, workerNum*2), // buffer size can be tuned
+		crawler:              newHTTPCrawler(),
 	}
 }
 

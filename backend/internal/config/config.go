@@ -8,11 +8,11 @@ import (
 )
 
 type CrawlerConfig struct {
-	ScheduleInterval  time.Duration
-	ScheduleBatchSize int
-	WorkerNum         int
-	ExpirationTimeout time.Duration
-	CrawlTimeout      time.Duration
+	ScheduleInterval     time.Duration
+	ScheduleBatchSize    int
+	WorkerNum            int
+	CrawlExpirationDelta time.Duration
+	CrawlTimeout         time.Duration
 }
 type Config struct {
 	HTTPAddr string
@@ -69,11 +69,11 @@ func getCrawlerConfig() *CrawlerConfig {
 		crawlWorkerNum = 5
 	}
 
-	expirationTimeoutRaw := getEnv("CRAWL_EXPIRATION_TIMEOUT", "24h")
-	crawlExpirationTimeout, err := time.ParseDuration(expirationTimeoutRaw)
+	expirationDeltaRaw := getEnv("CRAWL_EXPIRATION_DELTA", "24h")
+	crawlExpirationDelta, err := time.ParseDuration(expirationDeltaRaw)
 	if err != nil {
-		fmt.Printf("invalid CRAWL_EXPIRATION_TIMEOUT: %v, defaulting to 24h\n", err)
-		crawlExpirationTimeout = 24 * time.Hour
+		fmt.Printf("invalid CRAWL_EXPIRATION_DELTA: %v, defaulting to 24h\n", err)
+		crawlExpirationDelta = 24 * time.Hour
 	}
 
 	crawlTimeoutRaw := getEnv("CRAWL_TIMEOUT", "30s")
@@ -84,11 +84,11 @@ func getCrawlerConfig() *CrawlerConfig {
 	}
 
 	return &CrawlerConfig{
-		ScheduleInterval:  crawlScheduleInterval,
-		ScheduleBatchSize: crawlScheduleBatchSize,
-		WorkerNum:         crawlWorkerNum,
-		ExpirationTimeout: crawlExpirationTimeout,
-		CrawlTimeout:      crawlTimeout,
+		ScheduleInterval:     crawlScheduleInterval,
+		ScheduleBatchSize:    crawlScheduleBatchSize,
+		WorkerNum:            crawlWorkerNum,
+		CrawlExpirationDelta: crawlExpirationDelta,
+		CrawlTimeout:         crawlTimeout,
 	}
 }
 

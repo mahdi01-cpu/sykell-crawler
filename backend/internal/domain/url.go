@@ -18,15 +18,17 @@ const (
 	UrlStatusDone    UrlStatus = "done"
 	UrlStatusFailed  UrlStatus = "failed"
 	UrlStatusStopped UrlStatus = "stopped"
+	UrlStatusExpired UrlStatus = "expired"
 )
 
 var statusTransitions = map[UrlStatus][]UrlStatus{
 	UrlStatusCreated: {UrlStatusQueued, UrlStatusStopped},
 	UrlStatusQueued:  {UrlStatusRunning, UrlStatusStopped, UrlStatusQueued},
-	UrlStatusRunning: {UrlStatusDone, UrlStatusFailed, UrlStatusStopped},
+	UrlStatusRunning: {UrlStatusDone, UrlStatusFailed, UrlStatusStopped, UrlStatusExpired},
 	UrlStatusDone:    {},
 	UrlStatusFailed:  {UrlStatusStopped, UrlStatusQueued},
 	UrlStatusStopped: {UrlStatusQueued, UrlStatusStopped},
+	UrlStatusExpired: {UrlStatusQueued},
 }
 
 type HeadingCount struct {
@@ -55,6 +57,7 @@ type URL struct {
 	// TimeStamps
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	ExpiresAt *time.Time
 }
 
 func hashURL(raw string) Hash {
@@ -113,7 +116,7 @@ func (u *URL) Validate() error {
 
 func (us UrlStatus) IsValid() bool {
 	switch us {
-	case UrlStatusCreated, UrlStatusQueued, UrlStatusRunning, UrlStatusDone, UrlStatusFailed, UrlStatusStopped:
+	case UrlStatusCreated, UrlStatusQueued, UrlStatusRunning, UrlStatusDone, UrlStatusFailed, UrlStatusStopped, UrlStatusExpired:
 		return true
 	default:
 
