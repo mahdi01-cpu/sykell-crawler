@@ -5,22 +5,27 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
+
+	"github.com/mahdi-01/sykell-crawler/internal/service"
 )
 
 type Server struct {
 	httpServer *http.Server
 }
+type Deps struct {
+	URLService service.URLService
+}
 
-func New(addr string) *Server {
+func New(addr string, deps Deps) *Server {
+	h := &handler{
+		urlSvc: deps.URLService,
+	}
+
 	mux := http.NewServeMux()
 
-	// EN: simple health check
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]any{
-			"status": "ok",
-			"time":   time.Now().UTC().Format(time.RFC3339Nano),
-		})
-	})
+	// simple health check
+	mux.HandleFunc("GET /healthz", h.healthHandler)
+	mux.HandleFunc("POST /urls", h.handleCreateURL)
 
 	s := &http.Server{
 		Addr:              addr,

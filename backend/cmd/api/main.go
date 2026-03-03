@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"log"
 	"net/http"
@@ -11,12 +12,22 @@ import (
 	"time"
 
 	"github.com/mahdi-01/sykell-crawler/internal/config"
+	repo "github.com/mahdi-01/sykell-crawler/internal/repo/mysql"
+	"github.com/mahdi-01/sykell-crawler/internal/service"
 	"github.com/mahdi-01/sykell-crawler/internal/transport/httpserver"
 )
 
 func main() {
+	// TODO: introduce application struct to hold dependencies and manage lifecycle
 	cfg := config.NewConfig()
-	srv := httpserver.New(cfg.HTTPAddr)
+	sqlDB, err := sql.Open("mysql", cfg.DBDSN)
+	if err != nil {
+		log.Fatalf("open mysql: %v", err)
+	}
+	defer sqlDB.Close()
+	urlRepo := repo.NewURLRepo(sqlDB)
+	urlSerfvice := service.NewURLService(urlRepo)
+	srv := httpserver.New(cfg.HTTPAddr, httpserver.Deps{URLService: urlSerfvice})
 
 	// run server in goroutine so we can handle graceful shutdown
 	go func() {

@@ -42,7 +42,8 @@ func (s *urlService) AddURLs(ctx context.Context, raws []string) ([]*domain.URL,
 			return nil, err
 		}
 
-		if err := s.repo.Save(ctx, u); err != nil {
+		u, err = s.repo.Save(ctx, u)
+		if err != nil {
 			return nil, err
 		}
 
@@ -65,7 +66,8 @@ func (s *urlService) StartURLs(ctx context.Context, ids []domain.ID) error {
 			return err
 		}
 
-		if err := s.repo.Update(ctx, u); err != nil {
+		u, err = s.repo.Update(ctx, u)
+		if err != nil {
 			return err
 		}
 	}
@@ -86,7 +88,8 @@ func (s *urlService) StopURLs(ctx context.Context, ids []domain.ID) error {
 			return err
 		}
 
-		if err := s.repo.Update(ctx, u); err != nil {
+		u, err = s.repo.Update(ctx, u)
+		if err != nil {
 			return err
 		}
 	}
