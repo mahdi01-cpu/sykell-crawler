@@ -136,3 +136,7 @@ func (s *urlService) ListURLs(
 
 	return s.repo.List(ctx, f, srt)
 }
+
+func (s *urlService) GetURL(ctx context.Context, id domain.ID) (*domain.URL, error) {
+	return s.repo.FindByID(ctx, id)
+}

@@ -4,7 +4,7 @@ infra-up:
 	docker-compose -f docker-compose-infra.yml up -d --wait
 
 infra-down:
-	docker-compose -f docker-compose-infra.yml down
+	docker-compose -f docker-compose-infra.yml down --volumes --remove-orphans
 
 migrate:
 	cd backend && go run ./cmd/migrate/

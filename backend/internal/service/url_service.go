@@ -11,4 +11,5 @@ type URLService interface {
 	StartURLs(ctx context.Context, ids []domain.ID) error
 	StopURLs(ctx context.Context, ids []domain.ID) error
 	ListURLs(ctx context.Context, filter *domain.URLFilter, sort *domain.URLSort) ([]*domain.URL, error)
+	GetURL(ctx context.Context, id domain.ID) (*domain.URL, error)
 }

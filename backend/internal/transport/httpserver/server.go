@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/mahdi-01/sykell-crawler/internal/service"
+	"github.com/mahdi-01/sykell-crawler/internal/transport/httpserver/handlers"
 )
 
 type Server struct {
@@ -17,15 +18,24 @@ type Deps struct {
 }
 
 func New(addr string, deps Deps) *Server {
-	h := &handler{
-		urlSvc: deps.URLService,
-	}
+	h := handlers.NewHandler(deps.URLService)
 
 	mux := http.NewServeMux()
 
-	// simple health check
-	mux.HandleFunc("GET /healthz", h.healthHandler)
-	mux.HandleFunc("POST /urls", h.handleCreateURL)
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+
+		enc := json.NewEncoder(w)
+		enc.SetEscapeHTML(true)
+		_ = enc.Encode(map[string]any{
+			"status": "ok",
+			"time":   time.Now().UTC().Format(time.RFC3339Nano),
+		})
+	})
+	mux.HandleFunc("POST /urls", h.HandleCreateURLs)
+	mux.HandleFunc("GET /urls/{id}", h.HandleGetURL)
+	mux.HandleFunc("GET /urls", h.HandleListURLs)
 
 	s := &http.Server{
 		Addr:              addr,
@@ -42,13 +52,4 @@ func (s *Server) ListenAndServe() error {
 
 func (s *Server) Shutdown(ctx context.Context) error {
 	return s.httpServer.Shutdown(ctx)
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(status)
-
-	enc := json.NewEncoder(w)
-	enc.SetEscapeHTML(true)
-	_ = enc.Encode(v)
 }

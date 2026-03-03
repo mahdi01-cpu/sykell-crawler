@@ -12,6 +12,7 @@ type Hash [32]byte
 type UrlStatus string
 
 const (
+	UrlStatusCreated UrlStatus = "created"
 	UrlStatusQueued  UrlStatus = "queued"
 	UrlStatusRunning UrlStatus = "running"
 	UrlStatusDone    UrlStatus = "done"
@@ -20,6 +21,7 @@ const (
 )
 
 var statusTransitions = map[UrlStatus][]UrlStatus{
+	UrlStatusCreated: {UrlStatusQueued, UrlStatusStopped},
 	UrlStatusQueued:  {UrlStatusRunning, UrlStatusStopped},
 	UrlStatusRunning: {UrlStatusDone, UrlStatusFailed, UrlStatusStopped},
 	UrlStatusDone:    {},
@@ -70,7 +72,7 @@ func New(raw string) (*URL, error) {
 	return &URL{
 		Raw:    raw,
 		Hash:   hashURL(raw),
-		Status: UrlStatusQueued,
+		Status: UrlStatusCreated,
 	}, nil
 }
 
@@ -102,12 +104,19 @@ func (u *URL) Validate() error {
 		return ErrInvalidURL
 	}
 
-	switch u.Status {
-	case UrlStatusQueued, UrlStatusRunning, UrlStatusDone, UrlStatusFailed, UrlStatusStopped:
-		// valid status
-	default:
+	if !u.Status.IsValid() {
 		return ErrInvalidURLStatus
 	}
 
 	return nil
+}
+
+func (us UrlStatus) IsValid() bool {
+	switch us {
+	case UrlStatusCreated, UrlStatusQueued, UrlStatusRunning, UrlStatusDone, UrlStatusFailed, UrlStatusStopped:
+		return true
+	default:
+
+		return false
+	}
 }
